@@ -598,16 +598,43 @@ router.put('/:id', [auth, canModifyCertificates], async (req, res) => {
     certificateStartDate.setHours(0, 0, 0, 0);
     endDate.setHours(0, 0, 0, 0);
 
+    console.log('Recherche de doublons avec les paramètres suivants:', {
+      certificatId: req.params.id,
+      fullName,
+      birthDate: birthDate.toISOString(),
+      referenceLevel,
+      courseStartDate: certificateStartDate.toISOString(),
+      courseEndDate: endDate.toISOString()
+    });
+
     const existingCertificate = await Certificate.findOne({
       _id: { $ne: req.params.id },
       fullName: fullName,
-      dateOfBirth: birthDate,
+      dateOfBirth: {
+        $gte: new Date(birthDate.setHours(0, 0, 0, 0)),
+        $lte: new Date(birthDate.setHours(23, 59, 59, 999))
+      },
       referenceLevel: referenceLevel,
-      courseStartDate: certificateStartDate,
-      courseEndDate: endDate
+      courseStartDate: {
+        $gte: new Date(certificateStartDate.setHours(0, 0, 0, 0)),
+        $lte: new Date(certificateStartDate.setHours(23, 59, 59, 999))
+      },
+      courseEndDate: {
+        $gte: new Date(endDate.setHours(0, 0, 0, 0)),
+        $lte: new Date(endDate.setHours(23, 59, 59, 999))
+      }
     });
 
     if (existingCertificate) {
+      console.log('Certificat existant trouvé:', {
+        id: existingCertificate._id,
+        fullName: existingCertificate.fullName,
+        dateOfBirth: existingCertificate.dateOfBirth,
+        referenceLevel: existingCertificate.referenceLevel,
+        courseStartDate: existingCertificate.courseStartDate,
+        courseEndDate: existingCertificate.courseEndDate
+      });
+
       return res.status(400).json({ 
         error: `Un certificat existe déjà pour cet étudiant avec le même niveau (${referenceLevel}) et les mêmes dates de cours`
       });

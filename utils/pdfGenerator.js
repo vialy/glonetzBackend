@@ -152,7 +152,7 @@ const generateCertificatePDF = async (certificate) => {
       // === INFOS PERSONNELLES ===
       doc.font('Helvetica')
          .fontSize(11)
-         .text('Reference number / Referenznummer : ', { continued: true })
+         .text(' Referenznummer / Reference number : ', { continued: true })
          .font('Helvetica-Bold')
          .text(certificate.referenceNumber)
          .moveDown(1)
@@ -241,6 +241,18 @@ const generateCertificatePDF = async (certificate) => {
            align: 'left',
            indent: 0
          });
+
+         doc.moveDown(2)
+            .font('Helvetica')
+            .fontSize(11)
+            .text('Kursinfo / Course Information: ', {
+              align: 'left',
+              indent: 0,
+              continued: true
+         })
+         .font('Helvetica-Bold')
+         .text(courseInfoTranslations[certificate.courseInfo])
+         .font('Helvetica');
 
       doc.moveDown(0.8);
       

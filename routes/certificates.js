@@ -208,6 +208,19 @@ router.post('/import', [auth, canCreateCertificates, upload.single('file')], asy
           throw new Error('Champs requis manquants');
         }
 
+        // Vérifier que lessonsAttended ne dépasse pas lessonUnits
+        const lessonUnits = parseInt(mappedRow.lessonUnits) || 0;
+        const lessonsAttended = parseInt(mappedRow.lessonsAttended) || lessonUnits || 0;
+        
+        if (lessonsAttended > lessonUnits) {
+          results.push({
+            fullName: mappedRow.fullName,
+            success: false,
+            message: `Le nombre de leçons suivies (${lessonsAttended}) ne peut pas être supérieur au nombre total de leçons (${lessonUnits})`
+          });
+          continue;
+        }
+
         // Normaliser l'évaluation
         let normalizedEvaluation = mappedRow.evaluation;
         if (typeof mappedRow.evaluation === 'string') {
@@ -474,6 +487,16 @@ router.post('/', [auth, canCreateCertificates], async (req, res) => {
       });
     }
 
+    // Vérifier que lessonsAttended ne dépasse pas lessonUnits
+    const lessonUnits = parseInt(otherData.lessonUnits) || 0;
+    const lessonsAttended = parseInt(otherData.lessonsAttended) || lessonUnits || 0;
+    
+    if (lessonsAttended > lessonUnits) {
+      return res.status(400).json({
+        error: `Le nombre de leçons suivies (${lessonsAttended}) ne peut pas être supérieur au nombre total de leçons (${lessonUnits})`
+      });
+    }
+
     // Vérifier si un certificat similaire existe déjà
     const existingCertificate = await Certificate.findOne({
       fullName: fullName,
@@ -499,11 +522,11 @@ router.post('/', [auth, canCreateCertificates], async (req, res) => {
       referenceLevel: referenceLevel,
       courseStartDate: certificateStartDate,
       courseEndDate: new Date(courseEndDate),
-      lessonUnits: parseInt(otherData.lessonUnits) || 0,
-      lessonsAttended: parseInt(otherData.lessonsAttended) || parseInt(otherData.lessonUnits) || 0,
+      lessonUnits: lessonUnits,
+      lessonsAttended: lessonsAttended,
       comments: otherData.comments || '',
       evaluation: otherData.evaluation,
-      courseInfo: otherData.courseInfo || 'Komplette Stufe, Complete level',
+      courseInfo: otherData.courseInfo || 'Complete level',
       createdBy: req.user._id,
       userId: req.user._id,
       groupCode: groupCode
@@ -556,14 +579,32 @@ router.put('/:id', [auth, canModifyCertificates], async (req, res) => {
       });
     }
 
+    // Vérifier que lessonsAttended ne dépasse pas lessonUnits
+    const lessonUnits = parseInt(otherData.lessonUnits) || 0;
+    const lessonsAttended = parseInt(otherData.lessonsAttended) || lessonUnits || 0;
+    
+    if (lessonsAttended > lessonUnits) {
+      return res.status(400).json({
+        error: `Le nombre de leçons suivies (${lessonsAttended}) ne peut pas être supérieur au nombre total de leçons (${lessonUnits})`
+      });
+    }
+
     // Vérifier si un certificat similaire existe déjà (excluant le certificat actuel)
+    const birthDate = new Date(dateOfBirth);
+    const endDate = new Date(courseEndDate);
+    
+    // Normaliser toutes les dates (sans l'heure)
+    birthDate.setHours(0, 0, 0, 0);
+    certificateStartDate.setHours(0, 0, 0, 0);
+    endDate.setHours(0, 0, 0, 0);
+
     const existingCertificate = await Certificate.findOne({
       _id: { $ne: req.params.id },
       fullName: fullName,
-      dateOfBirth: dateOfBirth,
+      dateOfBirth: birthDate,
       referenceLevel: referenceLevel,
       courseStartDate: certificateStartDate,
-      courseEndDate: new Date(courseEndDate)
+      courseEndDate: endDate
     });
 
     if (existingCertificate) {
@@ -582,11 +623,11 @@ router.put('/:id', [auth, canModifyCertificates], async (req, res) => {
         referenceLevel: referenceLevel,
         courseStartDate: certificateStartDate,
         courseEndDate: new Date(courseEndDate),
-        lessonUnits: parseInt(otherData.lessonUnits) || 0,
-        lessonsAttended: parseInt(otherData.lessonsAttended) || parseInt(otherData.lessonUnits) || 0,
+        lessonUnits: lessonUnits,
+        lessonsAttended: lessonsAttended,
         comments: otherData.comments || '',
         evaluation: otherData.evaluation,
-        courseInfo: otherData.courseInfo || 'Komplette Stufe, Complete level',
+        courseInfo: otherData.courseInfo || 'Complete level',
         groupCode: groupCode
       },
       { new: true, runValidators: true }
@@ -621,10 +662,14 @@ router.post('/check-duplicate', auth, async (req, res) => {
   try {
     const { fullName, dateOfBirth, referenceLevel, courseStartDate, courseEndDate } = req.body;
 
-    // Convertir les dates en objets Date
+    // Convertir et normaliser les dates (sans l'heure)
     const startDate = new Date(courseStartDate);
     const endDate = new Date(courseEndDate);
     const birthDate = new Date(dateOfBirth);
+
+    startDate.setHours(0, 0, 0, 0);
+    endDate.setHours(0, 0, 0, 0);
+    birthDate.setHours(0, 0, 0, 0);
 
     // Rechercher un certificat existant avec les mêmes informations clés
     const existingCertificate = await Certificate.findOne({

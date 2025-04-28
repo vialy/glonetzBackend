@@ -268,14 +268,28 @@ router.post('/import', [auth, canCreateCertificates, upload.single('file')], asy
         // Vérifier que la date de début correspond à la date de début du groupe
         const certificateStartDate = new Date(mappedRow.courseStartDate);
         const groupStartDate = new Date(group.startDate);
-        // Comparer uniquement les dates (sans l'heure)
-        certificateStartDate.setHours(0, 0, 0, 0);
-        groupStartDate.setHours(0, 0, 0, 0);
+
+        // Normaliser les dates pour la comparaison (sans l'heure)
+        certificateStartDate.setUTCHours(0, 0, 0, 0);
+        groupStartDate.setUTCHours(0, 0, 0, 0);
+
+        console.log('Comparaison des dates:', {
+          certificateStartDate: certificateStartDate.toISOString(),
+          groupStartDate: groupStartDate.toISOString(),
+          certificateStartTimestamp: certificateStartDate.getTime(),
+          groupStartTimestamp: groupStartDate.getTime()
+        });
+
         if (certificateStartDate.getTime() !== groupStartDate.getTime()) {
+          const formattedGroupDate = groupStartDate.toLocaleDateString('fr-FR', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+          });
           results.push({
             fullName: mappedRow.fullName,
             success: false,
-            message: `La date de début du certificat doit correspondre à la date de début du groupe (${groupStartDate.toLocaleDateString()})`
+            message: `La date de début du certificat (${certificateStartDate.toLocaleDateString('fr-FR')}) doit correspondre à la date de début du groupe (${formattedGroupDate})`
           });
           continue;
         }
@@ -478,104 +492,26 @@ router.post('/', [auth, canCreateCertificates], async (req, res) => {
     // Vérifier que la date de début correspond à la date de début du groupe
     const certificateStartDate = new Date(courseStartDate);
     const groupStartDate = new Date(group.startDate);
-    // Comparer uniquement les dates (sans l'heure)
-    certificateStartDate.setHours(0, 0, 0, 0);
-    groupStartDate.setHours(0, 0, 0, 0);
+
+    // Normaliser les dates pour la comparaison (sans l'heure)
+    certificateStartDate.setUTCHours(0, 0, 0, 0);
+    groupStartDate.setUTCHours(0, 0, 0, 0);
+
+    console.log('Comparaison des dates:', {
+      certificateStartDate: certificateStartDate.toISOString(),
+      groupStartDate: groupStartDate.toISOString(),
+      certificateStartTimestamp: certificateStartDate.getTime(),
+      groupStartTimestamp: groupStartDate.getTime()
+    });
+
     if (certificateStartDate.getTime() !== groupStartDate.getTime()) {
-      return res.status(400).json({ 
-        error: `La date de début du certificat doit correspondre à la date de début du groupe (${groupStartDate.toLocaleDateString()})`
+      const formattedGroupDate = groupStartDate.toLocaleDateString('fr-FR', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
       });
-    }
-
-    // Vérifier que lessonsAttended ne dépasse pas lessonUnits
-    const lessonUnits = parseInt(otherData.lessonUnits) || 0;
-    const lessonsAttended = parseInt(otherData.lessonsAttended) || lessonUnits || 0;
-    
-    if (lessonsAttended > lessonUnits) {
-      return res.status(400).json({
-        error: `Le nombre de leçons suivies (${lessonsAttended}) ne peut pas être supérieur au nombre total de leçons (${lessonUnits})`
-      });
-    }
-
-    // Vérifier si un certificat similaire existe déjà
-    const existingCertificate = await Certificate.findOne({
-      fullName: fullName,
-      dateOfBirth: dateOfBirth,
-      referenceLevel: referenceLevel,
-      courseStartDate: certificateStartDate,
-      courseEndDate: new Date(courseEndDate)
-    });
-
-    if (existingCertificate) {
       return res.status(400).json({ 
-        error: `Un certificat existe déjà pour cet étudiant avec le même niveau (${referenceLevel}) et les mêmes dates de cours`
-      });
-    }
-
-    // Créer un nouveau certificat
-    const referenceNumber = await Certificate.generateReferenceNumber(referenceLevel);
-    const certificate = new Certificate({
-      referenceNumber,
-      fullName: fullName,
-      dateOfBirth: dateOfBirth,
-      placeOfBirth: otherData.placeOfBirth,
-      referenceLevel: referenceLevel,
-      courseStartDate: certificateStartDate,
-      courseEndDate: new Date(courseEndDate),
-      lessonUnits: lessonUnits,
-      lessonsAttended: lessonsAttended,
-      comments: otherData.comments || '',
-      evaluation: otherData.evaluation,
-      courseInfo: otherData.courseInfo || 'Complete level',
-      createdBy: req.user._id,
-      userId: req.user._id,
-      groupCode: groupCode
-    });
-
-    await certificate.save();
-
-    res.json({
-      success: true,
-      message: 'Certificat créé avec succès'
-    });
-  } catch (error) {
-    console.error('Erreur lors de la création du certificat:', error);
-    res.status(500).json({ error: 'Erreur lors de la création du certificat' });
-  }
-});
-
-// Update certificate (admin and manager only)
-router.put('/:id', [auth, canModifyCertificates], async (req, res) => {
-  try {
-    const { groupCode, referenceLevel, fullName, dateOfBirth, courseStartDate, courseEndDate, ...otherData } = req.body;
-
-    // Vérifier que le groupCode est fourni
-    if (!groupCode) {
-      return res.status(400).json({ error: 'Le groupe est requis' });
-    }
-
-    // Vérifier que le groupe existe
-    const group = await Group.findOne({ groupCode });
-    if (!group) {
-      return res.status(400).json({ error: 'Groupe non trouvé' });
-    }
-
-    // Vérifier que le niveau du certificat correspond au niveau du groupe
-    if (group.level !== referenceLevel) {
-      return res.status(400).json({ 
-        error: `Le niveau du certificat (${referenceLevel}) doit correspondre au niveau du groupe (${group.level})`
-      });
-    }
-
-    // Vérifier que la date de début correspond à la date de début du groupe
-    const certificateStartDate = new Date(courseStartDate);
-    const groupStartDate = new Date(group.startDate);
-    // Comparer uniquement les dates (sans l'heure)
-    certificateStartDate.setHours(0, 0, 0, 0);
-    groupStartDate.setHours(0, 0, 0, 0);
-    if (certificateStartDate.getTime() !== groupStartDate.getTime()) {
-      return res.status(400).json({ 
-        error: `La date de début du certificat doit correspondre à la date de début du groupe (${groupStartDate.toLocaleDateString()})`
+        error: `La date de début du certificat (${certificateStartDate.toLocaleDateString('fr-FR')}) doit correspondre à la date de début du groupe (${formattedGroupDate})`
       });
     }
 
@@ -591,39 +527,43 @@ router.put('/:id', [auth, canModifyCertificates], async (req, res) => {
 
     // Vérifier si un certificat similaire existe déjà (excluant le certificat actuel)
     const birthDate = new Date(dateOfBirth);
+    const startDate = new Date(courseStartDate);
     const endDate = new Date(courseEndDate);
     
     // Normaliser toutes les dates (sans l'heure)
-    birthDate.setHours(0, 0, 0, 0);
-    certificateStartDate.setHours(0, 0, 0, 0);
-    endDate.setHours(0, 0, 0, 0);
+    birthDate.setUTCHours(0, 0, 0, 0);
+    startDate.setUTCHours(0, 0, 0, 0);
+    endDate.setUTCHours(0, 0, 0, 0);
 
     console.log('Recherche de doublons avec les paramètres suivants:', {
-      certificatId: req.params.id,
+      action: req.params.id ? 'modification' : 'création',
+      certificatId: req.params.id || 'nouveau',
       fullName,
       birthDate: birthDate.toISOString(),
       referenceLevel,
-      courseStartDate: certificateStartDate.toISOString(),
-      courseEndDate: endDate.toISOString()
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString()
     });
 
-    const existingCertificate = await Certificate.findOne({
-      _id: { $ne: req.params.id },
+    // Critères de recherche pour les doublons
+    const duplicateQuery = {
       fullName: fullName,
-      dateOfBirth: {
-        $gte: new Date(birthDate.setHours(0, 0, 0, 0)),
-        $lte: new Date(birthDate.setHours(23, 59, 59, 999))
-      },
+      dateOfBirth: birthDate,
       referenceLevel: referenceLevel,
-      courseStartDate: {
-        $gte: new Date(certificateStartDate.setHours(0, 0, 0, 0)),
-        $lte: new Date(certificateStartDate.setHours(23, 59, 59, 999))
-      },
-      courseEndDate: {
-        $gte: new Date(endDate.setHours(0, 0, 0, 0)),
-        $lte: new Date(endDate.setHours(23, 59, 59, 999))
-      }
-    });
+      $or: [
+        {
+          courseStartDate: { $lte: endDate },
+          courseEndDate: { $gte: startDate }
+        }
+      ]
+    };
+
+    // Si nous sommes en mode modification, exclure le certificat actuel
+    if (req.params.id) {
+      duplicateQuery._id = { $ne: req.params.id };
+    }
+
+    const existingCertificate = await Certificate.findOne(duplicateQuery);
 
     if (existingCertificate) {
       console.log('Certificat existant trouvé:', {
@@ -635,9 +575,15 @@ router.put('/:id', [auth, canModifyCertificates], async (req, res) => {
         courseEndDate: existingCertificate.courseEndDate
       });
 
-      return res.status(400).json({ 
-        error: `Un certificat existe déjà pour cet étudiant avec le même niveau (${referenceLevel}) et les mêmes dates de cours`
-      });
+      const errorMessage = `Un certificat existe déjà pour cet étudiant avec :
+         - Même nom (${fullName})
+         - Même date de naissance (${birthDate.toLocaleDateString('fr-FR')})
+         - Même niveau (${referenceLevel})
+         - Période de cours qui se chevauche :
+           * Certificat existant : du ${new Date(existingCertificate.courseStartDate).toLocaleDateString('fr-FR')} au ${new Date(existingCertificate.courseEndDate).toLocaleDateString('fr-FR')}
+           * ${req.params.id ? 'Modification demandée' : 'Nouveau certificat'} : du ${startDate.toLocaleDateString('fr-FR')} au ${endDate.toLocaleDateString('fr-FR')}`;
+
+      return res.status(400).json({ error: errorMessage });
     }
 
     // Mettre à jour le certificat

@@ -2,12 +2,50 @@ const PDFDocument = require('pdfkit');
 const fs = require('fs');
 const path = require('path');
 
+// Fonction pour formater la date au format DD/MM/YYYY
+const formatDate = (dateString) => {
+  console.log('Date originale reçue:', dateString);
+  
+  try {
+    // Convertir la chaîne ISO en objet Date
+    const date = new Date(dateString);
+    
+    // Vérifier si la date est valide
+    if (isNaN(date.getTime())) {
+      console.error('Date invalide:', dateString);
+      return 'Date invalide';
+    }
+
+    // Utiliser toLocaleDateString pour forcer le format européen
+    const formattedDate = date.toLocaleDateString('fr-FR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+
+    console.log('Date formatée:', formattedDate);
+    return formattedDate;
+    
+  } catch (error) {
+    console.error('Erreur lors du formatage de la date:', error);
+    return 'Date invalide';
+  }
+};
+
 // Objet de correspondance pour les évaluations
 const evaluationTranslations = {
   'Outstanding': 'mit sehr gutem Erfolg / Outstanding',
   'Good': 'mit gutem Erfolg / Good',
   'Satisfactory': 'mit Erfolg / Satisfactory',
   'Participant': 'Teilgenommen / Participant'
+};
+
+// Objet de correspondance pour les informations de cours
+const courseInfoTranslations = {
+  'Complete level': 'Komplette Stufe / Complete level',
+  'Partially completed level': 'Teilweise absolvierte Stufe / Partially completed level',
+  'Course dropped out': 'Kurs abgebrochen / Course dropped out',
+  'No participation': 'Keine Teilnahme / No participation'
 };
 
 const generateCertificatePDF = async (certificate) => {
@@ -126,21 +164,26 @@ const generateCertificatePDF = async (certificate) => {
          .moveDown(0.5)
          .text('geboren am / Date of birth: ', { continued: true })
          .font('Helvetica-Bold')
-         .text(new Date(certificate.dateOfBirth).toLocaleDateString(), { continued: true })
+         .text(formatDate(certificate.dateOfBirth), { continued: true })
          .font('Helvetica')
          .text('   geboren in / Place of birth: ', { continued: true })
          .font('Helvetica-Bold')
          .text(certificate.placeOfBirth);
 
+      console.log('Dates du certificat:');
+      console.log('Date de naissance:', certificate.dateOfBirth);
+      console.log('Date de début:', certificate.courseStartDate);
+      console.log('Date de fin:', certificate.courseEndDate);
+
       doc.moveDown(2);
       doc.font('Helvetica')
          .text('hat in der Zeit vom / attended from ', { continued: true })
          .font('Helvetica-Bold')
-         .text(new Date(certificate.courseStartDate).toLocaleDateString(), { continued: true })
+         .text(formatDate(certificate.courseStartDate), { continued: true })
          .font('Helvetica')
          .text(' bis / to ', { continued: true })
          .font('Helvetica-Bold')
-         .text(new Date(certificate.courseEndDate).toLocaleDateString())
+         .text(formatDate(certificate.courseEndDate))
          .font('Helvetica')
          .text('an einem Deutschkurs im BGS Sari Douala Sprachzentrum teilgenommen / a course in the german language.')
          .moveDown(2)
@@ -194,7 +237,7 @@ const generateCertificatePDF = async (certificate) => {
       doc.moveDown(2)
          .font('Helvetica')
          .fontSize(11)
-         .text('Kursinfo / Course Information: Komplette Stufe, Complete level', {
+         .text('Kursinfo / Course Information: ' + courseInfoTranslations[certificate.courseInfo], {
            align: 'left',
            indent: 0
          });
@@ -257,9 +300,9 @@ const generateCertificatePDF = async (certificate) => {
 
       // === SIGNATURES ===
       const signatureY = doc.y;
-      const currentDate = new Date().toLocaleDateString('de-DE'); // Format: DD.MM.YYYY
-      const pageWidth = doc.page.width;        // Largeur totale de la page
-      const signaturePageCenter = pageWidth / 2;        // Centre de la page
+      const currentDate = formatDate(new Date()); // Utiliser formatDate ici aussi
+      const pageWidth = doc.page.width;
+      const signaturePageCenter = pageWidth / 2;
       const signatureWidth = doc.widthOfString('________________________');
       const dateText = `Douala, ${currentDate}`;
       const dateWidth = doc.widthOfString(dateText);

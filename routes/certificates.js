@@ -189,7 +189,8 @@ router.post('/import', [auth, canCreateCertificates, upload.single('file')], asy
           lessonUnits: row['Nombre de leçons'],
           lessonsAttended: row['Leçons suivies'] || row['Nombre de leçons'],
           comments: row['Commentaires'],
-          evaluation: row['Évaluation']
+          evaluation: row['Évaluation'],
+          courseInfo: row['Info cours'] || 'Complete level'
         };
 
         // Vérifier que les dates sont valides
@@ -221,6 +222,23 @@ router.post('/import', [auth, canCreateCertificates, upload.single('file')], asy
             normalizedEvaluation = 'Participant';
           } else {
             throw new Error(`Valeur d'évaluation invalide: ${mappedRow.evaluation}. Les valeurs acceptées sont: Outstanding, Good, Satisfactory, Participant`);
+          }
+        }
+
+        // Normaliser courseInfo
+        let normalizedCourseInfo = mappedRow.courseInfo;
+        if (typeof mappedRow.courseInfo === 'string') {
+          const lowerInfo = mappedRow.courseInfo.toLowerCase();
+          if (lowerInfo.includes('complete')) {
+            normalizedCourseInfo = 'Complete level';
+          } else if (lowerInfo.includes('partial')) {
+            normalizedCourseInfo = 'Partially completed level';
+          } else if (lowerInfo.includes('drop')) {
+            normalizedCourseInfo = 'Course dropped out';
+          } else if (lowerInfo.includes('no participation')) {
+            normalizedCourseInfo = 'No participation';
+          } else {
+            throw new Error(`Valeur d'info cours invalide: ${mappedRow.courseInfo}. Les valeurs acceptées sont: Complete level, Partially completed level, Course dropped out, No participation`);
           }
         }
 
@@ -281,7 +299,7 @@ router.post('/import', [auth, canCreateCertificates, upload.single('file')], asy
           lessonsAttended: parseInt(mappedRow.lessonsAttended) || parseInt(mappedRow.lessonUnits) || 0,
           comments: mappedRow.comments || '',
           evaluation: normalizedEvaluation,
-          courseInfo: 'Komplette Stufe, Complete level',
+          courseInfo: normalizedCourseInfo,
           createdBy: req.user._id,
           userId: req.user._id,
           groupCode: req.body.groupCode
@@ -595,6 +613,38 @@ router.delete('/:id', [auth, isAdmin], async (req, res) => {
     res.json({ message: 'Certificat supprimé avec succès' });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+// Vérifier les doublons
+router.post('/check-duplicate', auth, async (req, res) => {
+  try {
+    const { fullName, dateOfBirth, referenceLevel, courseStartDate, courseEndDate } = req.body;
+
+    // Convertir les dates en objets Date
+    const startDate = new Date(courseStartDate);
+    const endDate = new Date(courseEndDate);
+    const birthDate = new Date(dateOfBirth);
+
+    // Rechercher un certificat existant avec les mêmes informations clés
+    const existingCertificate = await Certificate.findOne({
+      fullName: fullName,
+      dateOfBirth: birthDate,
+      referenceLevel: referenceLevel,
+      courseStartDate: startDate,
+      courseEndDate: endDate
+    });
+
+    res.json({
+      exists: !!existingCertificate,
+      certificate: existingCertificate ? {
+        id: existingCertificate._id,
+        referenceNumber: existingCertificate.referenceNumber
+      } : null
+    });
+  } catch (error) {
+    console.error('Error checking duplicate certificate:', error);
+    res.status(500).json({ error: 'Erreur lors de la vérification des doublons' });
   }
 });
 

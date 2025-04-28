@@ -93,10 +93,18 @@ router.put('/:userId', [auth, admin], async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
+    // Si l'admin modifie son propre profil, il ne peut pas changer son rôle
+    if (userId === req.user._id.toString() && role && role !== user.role) {
+      return res.status(403).json({ error: 'Vous ne pouvez pas modifier votre propre rôle' });
+    }
+
     // Update user fields
     if (username) user.username = username;
-    if (password) user.password = password;
-    if (role) user.role = role;
+    if (password) {
+      const salt = await bcryptjs.genSalt(10);
+      user.password = await bcryptjs.hash(password, salt);
+    }
+    if (role && userId !== req.user._id.toString()) user.role = role;
 
     // Save the updated user
     await user.save();

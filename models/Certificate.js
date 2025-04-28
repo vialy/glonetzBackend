@@ -62,6 +62,7 @@ const certificateSchema = new mongoose.Schema({
   },
   courseInfo: {
     type: String,
+    enum: ['Complete level', 'Partially completed level', 'Course dropped out', 'No participation'],
     required: true
   },
   comments: {

@@ -466,6 +466,11 @@ router.get('/:id/pdf', auth, async (req, res) => {
   }
 });
 
+// Fonction pour normaliser un nom (supprimer les espaces multiples et mettre en minuscules)
+const normalizeName = (name) => {
+  return name.trim().toLowerCase().replace(/\s+/g, ' ');
+};
+
 // Create certificate (admin only)
 router.post('/', [auth, canCreateCertificates], async (req, res) => {
   try {
@@ -530,6 +535,7 @@ router.post('/', [auth, canCreateCertificates], async (req, res) => {
 
     console.log('Recherche de doublons pour création:', {
       fullName,
+      normalizedName: normalizeName(fullName),
       birthDate: birthDate.toISOString(),
       referenceLevel,
       startDate: startDate.toISOString(),
@@ -538,7 +544,12 @@ router.post('/', [auth, canCreateCertificates], async (req, res) => {
 
     // Critères de recherche pour les doublons
     const duplicateQuery = {
-      fullName: fullName,
+      $expr: {
+        $eq: [
+          { $toLower: { $trim: { input: "$fullName", chars: " " } } },
+          normalizeName(fullName)
+        ]
+      },
       dateOfBirth: birthDate,
       referenceLevel: referenceLevel,
       $or: [
@@ -555,6 +566,7 @@ router.post('/', [auth, canCreateCertificates], async (req, res) => {
       console.log('Certificat existant trouvé:', {
         id: existingCertificate._id,
         fullName: existingCertificate.fullName,
+        normalizedName: normalizeName(existingCertificate.fullName),
         dateOfBirth: existingCertificate.dateOfBirth,
         referenceLevel: existingCertificate.referenceLevel,
         courseStartDate: existingCertificate.courseStartDate,
@@ -562,7 +574,7 @@ router.post('/', [auth, canCreateCertificates], async (req, res) => {
       });
 
       const errorMessage = `Un certificat existe déjà pour cet étudiant avec :
-         - Même nom (${fullName})
+         - Même nom (${existingCertificate.fullName})
          - Même date de naissance (${birthDate.toLocaleDateString('fr-FR')})
          - Même niveau (${referenceLevel})
          - Période de cours qui se chevauche :
@@ -673,6 +685,7 @@ router.put('/:id', [auth, canModifyCertificates], async (req, res) => {
     console.log('Recherche de doublons pour modification:', {
       certificatId: req.params.id,
       fullName,
+      normalizedName: normalizeName(fullName),
       birthDate: birthDate.toISOString(),
       referenceLevel,
       startDate: startDate.toISOString(),
@@ -682,7 +695,12 @@ router.put('/:id', [auth, canModifyCertificates], async (req, res) => {
     // Critères de recherche pour les doublons (en excluant le certificat actuel)
     const duplicateQuery = {
       _id: { $ne: req.params.id }, // Exclure le certificat actuel
-      fullName: fullName,
+      $expr: {
+        $eq: [
+          { $toLower: { $trim: { input: "$fullName", chars: " " } } },
+          normalizeName(fullName)
+        ]
+      },
       dateOfBirth: birthDate,
       referenceLevel: referenceLevel,
       $or: [
@@ -699,6 +717,7 @@ router.put('/:id', [auth, canModifyCertificates], async (req, res) => {
       console.log('Certificat en conflit trouvé:', {
         id: duplicateCertificate._id,
         fullName: duplicateCertificate.fullName,
+        normalizedName: normalizeName(duplicateCertificate.fullName),
         dateOfBirth: duplicateCertificate.dateOfBirth,
         referenceLevel: duplicateCertificate.referenceLevel,
         courseStartDate: duplicateCertificate.courseStartDate,
@@ -706,7 +725,7 @@ router.put('/:id', [auth, canModifyCertificates], async (req, res) => {
       });
 
       const errorMessage = `Un autre certificat existe déjà pour cet étudiant avec :
-         - Même nom (${fullName})
+         - Même nom (${duplicateCertificate.fullName})
          - Même date de naissance (${birthDate.toLocaleDateString('fr-FR')})
          - Même niveau (${referenceLevel})
          - Période de cours qui se chevauche :

@@ -234,14 +234,6 @@ const generateCertificatePDF = async (certificate) => {
       
       // === INFOS DU COURS ===
       doc.x = 50; // Réinitialiser la position x à la marge gauche
-      doc.moveDown(2)
-         .font('Helvetica')
-         .fontSize(11)
-         .text('Kursinfo / Course Information: ' + courseInfoTranslations[certificate.courseInfo], {
-           align: 'left',
-           indent: 0
-         });
-
          doc.moveDown(2)
             .font('Helvetica')
             .fontSize(11)

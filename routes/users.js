@@ -100,10 +100,7 @@ router.put('/:userId', [auth, admin], async (req, res) => {
 
     // Update user fields
     if (username) user.username = username;
-    if (password) {
-      const salt = await bcryptjs.genSalt(10);
-      user.password = await bcryptjs.hash(password, salt);
-    }
+    if (password) user.password = password;  // Le middleware pre('save') s'occupera du hachage
     if (role && userId !== req.user._id.toString()) user.role = role;
 
     // Save the updated user

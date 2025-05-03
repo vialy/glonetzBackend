@@ -131,7 +131,7 @@ router.put('/profile', auth, async (req, res) => {
 
     // Update user fields
     if (username) user.username = username;
-    if (password) user.password = password;
+    if (password) user.password = password;  // Le middleware pre('save') s'occupera du hachage
 
     // Save the updated user
     await user.save();

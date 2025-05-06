@@ -191,7 +191,7 @@ const generateCertificatePDF = async (certificate) => {
          .font('Helvetica-Bold')
          .text(certificate.lessonUnits.toString(), { continued: true })
          .font('Helvetica')
-         .text(' Unterrichtseinheiten à 45 Minuten / lessons of 45 minutes.');
+         .text(' Unterrichtseinheiten von jeweils 45 Minuten / lessons of 45 minutes.');
 
       doc.moveDown(2);
 

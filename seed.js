@@ -4,20 +4,11 @@ const User = require('./models/User');
 
 const users = [
   {
-    username: 'admin',
+    username: 'add',
     password: 'admin123',
     role: 'admin'
   },
-  {
-    username: 'manager',
-    password: 'user123',
-    role: 'manager'
-  },
-  {
-    username: 'classique',
-    password: 'user123',
-    role: 'classique'
-  }
+ 
 ];
 
 const seedDatabase = async () => {
@@ -27,8 +18,8 @@ const seedDatabase = async () => {
     console.log('Connected to MongoDB');
 
     // Clear existing users
-    await User.deleteMany({});
-    console.log('Cleared existing users');
+    // await User.deleteMany({});
+    // console.log('Cleared existing users');
 
     // Create new users
     for (const userData of users) {
